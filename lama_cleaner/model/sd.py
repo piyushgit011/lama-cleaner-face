@@ -129,17 +129,18 @@ class SD(DiffusionInpaintModel):
         mask: [H, W, 1] 255 means area to repaint
         return: BGR IMAGE
         """
-
+        print('I Am Here')
+        print('-----------------')
         scheduler_config = self.model.scheduler.config
         scheduler = get_scheduler(config.sd_sampler, scheduler_config)
         self.model.scheduler = scheduler
 
         if config.sd_mask_blur != 0:
             k = 2 * config.sd_mask_blur + 1
-            mask = cv2.GaussianBlur(mask, (k, k), 0)[:, :, np.newaxis]
-
+            # mask = cv2.GaussianBlur(mask, (k, k), 0)[:, :, np.newaxis]
+        print(np.shape(mask))
         img_h, img_w = image.shape[:2]
-
+        
         output = self.model(
             image=PIL.Image.fromarray(image),
             prompt=config.prompt,
@@ -164,7 +165,7 @@ class SD(DiffusionInpaintModel):
 
         if config.sd_mask_blur != 0:
             k = 2 * config.sd_mask_blur + 1
-            mask = cv2.GaussianBlur(mask, (k, k), 0)
+            # mask = cv2.GaussianBlur(mask, (k, k), 0)
         return result, image, mask
 
     @staticmethod

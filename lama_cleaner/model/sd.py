@@ -137,7 +137,7 @@ class SD(DiffusionInpaintModel):
 
         if config.sd_mask_blur != 0:
             k = 2 * config.sd_mask_blur + 1
-            # mask = cv2.GaussianBlur(mask, (k, k), 0)[:, :, np.newaxis]
+            mask = cv2.GaussianBlur(mask, (k, k), 0)[:, :, np.newaxis]
         print(np.shape(mask))
         img_h, img_w = image.shape[:2]
         
@@ -165,7 +165,7 @@ class SD(DiffusionInpaintModel):
 
         if config.sd_mask_blur != 0:
             k = 2 * config.sd_mask_blur + 1
-            # mask = cv2.GaussianBlur(mask, (k, k), 0)
+            mask = cv2.GaussianBlur(mask, (k, k), 0)
         return result, image, mask
 
     @staticmethod

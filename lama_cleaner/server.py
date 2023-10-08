@@ -64,6 +64,28 @@ from lama_cleaner.helper import (
     pil_to_bytes,
 )
 
+
+
+import face_recognition
+import cv2
+import numpy as np
+def create_mask_face(frame):
+  
+  face_locations = []
+  rgb_small_frame = frame[:, :, ::-1]
+
+  face_locations = face_recognition.face_locations(rgb_small_frame)
+
+  mask = np.zeros((frame.shape[0],frame.shape[1]),dtype=np.uint)
+  for (top, right, bottom, left) in face_locations:
+    top =max(0,top-int(frame.shape[0]/10))
+    bottom =min(frame.shape[1],bottom+int(frame.shape[1]/10))
+    left =max(0,left-int(frame.shape[1]/10))
+    right =min(frame.shape[0],right+int(frame.shape[0]/10))
+    
+    mask[top:bottom,left:right]=255
+    return mask
+
 NUM_THREADS = str(multiprocessing.cpu_count())
 
 # fix libomp problem on windows https://github.com/Sanster/lama-cleaner/issues/56
@@ -215,9 +237,9 @@ def process():
     origin_image_bytes = input["image"].read()
     image, alpha_channel, exif_infos = load_img(origin_image_bytes, return_exif=True)
 
-    mask, _ = load_img(input["mask"].read(), gray=True)
-    mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)[1]
-
+    # mask, _ = load_img(input["mask"].read(), gray=True)
+    # mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)[1]
+    mask = create_mask_face(image)
     if image.shape[:2] != mask.shape[:2]:
         return (
             f"Mask shape{mask.shape[:2]} not queal to Image shape{image.shape[:2]}",

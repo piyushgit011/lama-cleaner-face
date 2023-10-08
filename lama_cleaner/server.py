@@ -76,7 +76,7 @@ def create_mask_face(frame):
 
   face_locations = face_recognition.face_locations(rgb_small_frame)
 
-  mask = np.zeros((frame.shape[0],frame.shape[1]),dtype=np.uint)
+  mask = np.zeros((frame.shape[0],frame.shape[1]),dtype=np.uint8)
   for (top, right, bottom, left) in face_locations:
     top =max(0,top-int(frame.shape[0]/10))
     bottom =min(frame.shape[1],bottom+int(frame.shape[1]/10))
@@ -238,8 +238,9 @@ def process():
     image, alpha_channel, exif_infos = load_img(origin_image_bytes, return_exif=True)
 
     # mask, _ = load_img(input["mask"].read(), gray=True)
-    # mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)[1]
+    
     mask = create_mask_face(image)
+    mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)[1]
     if image.shape[:2] != mask.shape[:2]:
         return (
             f"Mask shape{mask.shape[:2]} not queal to Image shape{image.shape[:2]}",

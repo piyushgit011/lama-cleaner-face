@@ -504,9 +504,43 @@ def index():
         interpolation = cv2.INTER_CUBIC
 
         # form = request.form
-        form = {'ldmSteps', '25', 'ldmSampler', 'plms', 'zitsWireframe', 'true', 'hdStrategy', 'Original', 'hdStrategyCropMargin', '128', 'hdStrategyCropTrigerSize', '512', 'hdStrategyResizeLimit', '768', 'prompt', 'A bald head looking straight at camer', 'negativePrompt', '', 'croperX', '56', 'croperY', '160', 'croperHeight', '512', 'croperWidth', '512', 'useCroper', 'false', 'sdMaskBlur', '5', 'sdStrength', '0.75', 'sdSteps', '50', 'sdGuidanceScale', '7.5', 'sdSampler', 'uni_pc', 'sdSeed', '-1', 'sdMatchHistograms', 'false', 'sdScale', '1', 'cv2Radius', '5', 'cv2Flag', 'INPAINT_NS', 'paintByExampleSteps', '50', 'paintByExampleGuidanceScale', '7.5', 'paintByExampleSeed', '-1', 'paintByExampleMaskBlur', '5', 'paintByExampleMatchHistograms', 'false', 'p2pSteps', '50', 'p2pImageGuidanceScale', '1.5', 'p2pGuidanceScale', '7.5', 'controlnet_conditioning_scale', '0.4', 'controlnet_method', 'control_v11p_sd15_canny'}
+        form = {'ldmSteps': '25',
+         'ldmSampler': 'plms',
+          'zitsWireframe': 'true',
+           'hdStrategy': 'Original',
+            'hdStrategyCropMargin': '128',
+             'hdStrategyCropTrigerSize': '512',
+              'hdStrategyResizeLimit': '768',
+               'prompt': 'A bald head looking straight at camer',
+                'negativePrompt': '', 
+                'croperX': '56',
+                 'croperY': '160',
+                  'croperHeight': '512',
+                   'croperWidth': '512',
+                    'useCroper': 'false',
+                     'sdMaskBlur': '5',
+                      'sdStrength': '0.75',
+                       'sdSteps': '50',
+                        'sdGuidanceScale': '7.5',
+                         'sdSampler': 'uni_pc',
+                          'sdSeed': '-1',
+                           'sdMatchHistograms': 'false',
+                            'sdScale': '1',
+                             'cv2Radius': '5',
+                              'cv2Flag': 'INPAINT_NS',
+                               'paintByExampleSteps': '50',
+                                'paintByExampleGuidanceScale': '7.5',
+                                 'paintByExampleSeed': '-1',
+                                  'paintByExampleMaskBlur': '5',
+                                   'paintByExampleMatchHistograms': 'false',
+                                    'p2pSteps': '50',
+                                     'p2pImageGuidanceScale': '1.5',
+                                      'p2pGuidanceScale': '7.5',
+                                       'controlnet_conditioning_scale': '0.4',
+                                        'controlnet_method': 'control_v11p_sd15_canny'}
         size_limit = max(image.shape)
-
+        print(form)
+        print(form["ldmSteps"])
         if "paintByExampleImage" in input:
             paint_by_example_example_image, _ = load_img(
                 input["paintByExampleImage"].read()
@@ -611,7 +645,7 @@ def index():
         socketio.emit("diffusion_finish")
         return response
     else:
-        return render_template(os.path.join(BUILD_DIR, "new_index.html"))
+        return send_file(os.path.join(BUILD_DIR, "new_index.html"))
 @app.route("/inputimage")
 def set_input_photo():
     if input_image_path:

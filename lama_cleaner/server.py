@@ -11,7 +11,7 @@ import multiprocessing
 import random
 import time
 from pathlib import Path
-
+from flask import Flask, render_template
 import cv2
 import numpy as np
 import torch
@@ -269,7 +269,8 @@ def process():
         hd_strategy_crop_margin=form["hdStrategyCropMargin"],
         hd_strategy_crop_trigger_size=form["hdStrategyCropTrigerSize"],
         hd_strategy_resize_limit=form["hdStrategyResizeLimit"],
-        prompt=form["prompt"],
+        prompt="A bald head looking straight at camera",
+        # prompt=form["prompt"],
         negative_prompt=form["negativePrompt"],
         use_croper=form["useCroper"],
         croper_x=form["croperX"],
@@ -478,11 +479,139 @@ def switch_model():
     return f"ok, switch to {new_name}", 200
 
 
-@app.route("/")
+# @app.route("/")
+# def index():
+#     return send_file(os.path.join(BUILD_DIR, "index.html"))
+@app.route("/", methods=['POST','GET'])
 def index():
-    return send_file(os.path.join(BUILD_DIR, "index.html"))
+    if request.method == 'POST':
+        input = request.files
+        # RGB
+        origin_image_bytes = input["image"].read()
+        image, alpha_channel, exif_infos = load_img(origin_image_bytes, return_exif=True)
 
+        # mask, _ = load_img(input["mask"].read(), gray=True)
+        
+        mask = create_mask_face(image)
+        mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)[1]
+        if image.shape[:2] != mask.shape[:2]:
+            return (
+                f"Mask shape{mask.shape[:2]} not queal to Image shape{image.shape[:2]}",
+                400,
+            )
 
+        original_shape = image.shape
+        interpolation = cv2.INTER_CUBIC
+
+        # form = request.form
+        form = {'ldmSteps', '25', 'ldmSampler', 'plms', 'zitsWireframe', 'true', 'hdStrategy', 'Original', 'hdStrategyCropMargin', '128', 'hdStrategyCropTrigerSize', '512', 'hdStrategyResizeLimit', '768', 'prompt', 'A bald head looking straight at camer', 'negativePrompt', '', 'croperX', '56', 'croperY', '160', 'croperHeight', '512', 'croperWidth', '512', 'useCroper', 'false', 'sdMaskBlur', '5', 'sdStrength', '0.75', 'sdSteps', '50', 'sdGuidanceScale', '7.5', 'sdSampler', 'uni_pc', 'sdSeed', '-1', 'sdMatchHistograms', 'false', 'sdScale', '1', 'cv2Radius', '5', 'cv2Flag', 'INPAINT_NS', 'paintByExampleSteps', '50', 'paintByExampleGuidanceScale', '7.5', 'paintByExampleSeed', '-1', 'paintByExampleMaskBlur', '5', 'paintByExampleMatchHistograms', 'false', 'p2pSteps', '50', 'p2pImageGuidanceScale', '1.5', 'p2pGuidanceScale', '7.5', 'controlnet_conditioning_scale', '0.4', 'controlnet_method', 'control_v11p_sd15_canny'}
+        size_limit = max(image.shape)
+
+        if "paintByExampleImage" in input:
+            paint_by_example_example_image, _ = load_img(
+                input["paintByExampleImage"].read()
+            )
+            paint_by_example_example_image = Image.fromarray(paint_by_example_example_image)
+        else:
+            paint_by_example_example_image = None
+
+        config = Config(
+            ldm_steps=form["ldmSteps"],
+            ldm_sampler=form["ldmSampler"],
+            hd_strategy=form["hdStrategy"],
+            zits_wireframe=form["zitsWireframe"],
+            hd_strategy_crop_margin=form["hdStrategyCropMargin"],
+            hd_strategy_crop_trigger_size=form["hdStrategyCropTrigerSize"],
+            hd_strategy_resize_limit=form["hdStrategyResizeLimit"],
+            prompt="A bald head looking straight at camera",
+            # prompt=form["prompt"],
+            negative_prompt=form["negativePrompt"],
+            use_croper=form["useCroper"],
+            croper_x=form["croperX"],
+            croper_y=form["croperY"],
+            croper_height=form["croperHeight"],
+            croper_width=form["croperWidth"],
+            sd_scale=form["sdScale"],
+            sd_mask_blur=form["sdMaskBlur"],
+            sd_strength=form["sdStrength"],
+            sd_steps=form["sdSteps"],
+            sd_guidance_scale=form["sdGuidanceScale"],
+            sd_sampler=form["sdSampler"],
+            sd_seed=form["sdSeed"],
+            sd_match_histograms=form["sdMatchHistograms"],
+            cv2_flag=form["cv2Flag"],
+            cv2_radius=form["cv2Radius"],
+            paint_by_example_steps=form["paintByExampleSteps"],
+            paint_by_example_guidance_scale=form["paintByExampleGuidanceScale"],
+            paint_by_example_mask_blur=form["paintByExampleMaskBlur"],
+            paint_by_example_seed=form["paintByExampleSeed"],
+            paint_by_example_match_histograms=form["paintByExampleMatchHistograms"],
+            paint_by_example_example_image=paint_by_example_example_image,
+            p2p_steps=form["p2pSteps"],
+            p2p_image_guidance_scale=form["p2pImageGuidanceScale"],
+            p2p_guidance_scale=form["p2pGuidanceScale"],
+            controlnet_conditioning_scale=form["controlnet_conditioning_scale"],
+            controlnet_method=form["controlnet_method"],
+        )
+
+        if config.sd_seed == -1:
+            config.sd_seed = random.randint(1, 999999999)
+        if config.paint_by_example_seed == -1:
+            config.paint_by_example_seed = random.randint(1, 999999999)
+
+        logger.info(f"Origin image shape: {original_shape}")
+        image = resize_max_size(image, size_limit=size_limit, interpolation=interpolation)
+
+        mask = resize_max_size(mask, size_limit=size_limit, interpolation=interpolation)
+
+        start = time.time()
+        try:
+            res_np_img = model(image, mask, config)
+        except RuntimeError as e:
+            if "CUDA out of memory. " in str(e):
+                # NOTE: the string may change?
+                return "CUDA out of memory", 500
+            else:
+                logger.exception(e)
+                return f"{str(e)}", 500
+        finally:
+            logger.info(f"process time: {(time.time() - start) * 1000}ms")
+            torch_gc()
+
+        res_np_img = cv2.cvtColor(res_np_img.astype(np.uint8), cv2.COLOR_BGR2RGB)
+        if alpha_channel is not None:
+            if alpha_channel.shape[:2] != res_np_img.shape[:2]:
+                alpha_channel = cv2.resize(
+                    alpha_channel, dsize=(res_np_img.shape[1], res_np_img.shape[0])
+                )
+            res_np_img = np.concatenate(
+                (res_np_img, alpha_channel[:, :, np.newaxis]), axis=-1
+            )
+
+        ext = get_image_ext(origin_image_bytes)
+
+        bytes_io = io.BytesIO(
+            pil_to_bytes(
+                Image.fromarray(res_np_img),
+                ext,
+                quality=image_quality,
+                exif_infos=exif_infos,
+            )
+        )
+
+        response = make_response(
+            send_file(
+                # io.BytesIO(numpy_to_bytes(res_np_img, ext)),
+                bytes_io,
+                mimetype=f"image/{ext}",
+            )
+        )
+        response.headers["X-Seed"] = str(config.sd_seed)
+
+        socketio.emit("diffusion_finish")
+        return response
+    else:
+        return render_template(os.path.join(BUILD_DIR, "new_index.html"))
 @app.route("/inputimage")
 def set_input_photo():
     if input_image_path:

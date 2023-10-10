@@ -126,8 +126,12 @@ def create_mask_face(frame):
         right =min(frame.shape[0],right+int(frame.shape[0]/10))
 
         mask[top:bottom,left:right]=255
-
+    
     hair_mask = hair_detect(frame)
+    hair_mask = cv2.cvtColor(hair_mask,cv2.COLOR_BGR2GRAY)
+    print('--------')
+    print(hair_mask.shape)
+    print(mask.shape)
     mask=cv2.add(hair_mask,mask)
     return mask
 

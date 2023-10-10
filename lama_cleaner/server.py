@@ -79,7 +79,7 @@ def hair_detect(img):
 
 
   # Create the options that will be used for ImageSegmenter
-  base_options = python.BaseOptions(model_asset_path='hair_segmenter.tflite')
+  base_options = python.BaseOptions(model_asset_path='lama-cleaner/hair_segmenter.tflite')
   options = vision.ImageSegmenterOptions(base_options=base_options,
                                         output_category_mask=True)
 

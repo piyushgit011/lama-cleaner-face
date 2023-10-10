@@ -65,25 +65,70 @@ from lama_cleaner.helper import (
 )
 
 
+import numpy as np
+import mediapipe as mp
 
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 import face_recognition
 import cv2
 import numpy as np
+def hair_detect(img):
+  BG_COLOR = (0, 0, 0) # gray
+  MASK_COLOR = (255, 255, 255) # white
+
+
+  # Create the options that will be used for ImageSegmenter
+  base_options = python.BaseOptions(model_asset_path='hair_segmenter.tflite')
+  options = vision.ImageSegmenterOptions(base_options=base_options,
+                                        output_category_mask=True)
+
+  # Create the image segmenter
+  with vision.ImageSegmenter.create_from_options(options) as segmenter:
+
+    # Loop through demo image(s)
+  
+
+    # Retrieve the masks for the segmented image
+    new_img =  mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img,cv2.COLOR_BGR2RGB))
+    segmentation_result = segmenter.segment(new_img)
+    
+    category_mask = segmentation_result.category_mask
+
+    # Generate solid color images for showing the output segmentation mask.
+    image_data = new_img.numpy_view()
+    fg_image = np.zeros(image_data.shape, dtype=np.uint8)
+    fg_image[:] = MASK_COLOR
+    bg_image = np.zeros(image_data.shape, dtype=np.uint8)
+    bg_image[:] = BG_COLOR
+
+    condition = np.stack((category_mask.numpy_view(),) * 3, axis=-1) > 0.2
+    output_image = np.where(condition, fg_image, bg_image)
+    
+    kernel = np.ones((5, 5), np.uint8) 
+  
+
+    output_image = cv2.dilate(output_image, kernel, iterations=2) 
+    return output_image
+
 def create_mask_face(frame):
   
-  face_locations = []
-  rgb_small_frame = frame[:, :, ::-1]
+    face_locations = []
+    rgb_small_frame = frame[:, :, ::-1]
 
-  face_locations = face_recognition.face_locations(rgb_small_frame)
+    face_locations = face_recognition.face_locations(rgb_small_frame)
 
-  mask = np.zeros((frame.shape[0],frame.shape[1]),dtype=np.uint8)
-  for (top, right, bottom, left) in face_locations:
-    top =max(0,top-int(frame.shape[0]/10))
-    bottom =min(frame.shape[1],bottom+int(frame.shape[1]/10))
-    left =max(0,left-int(frame.shape[1]/10))
-    right =min(frame.shape[0],right+int(frame.shape[0]/10))
-    
-    mask[top:bottom,left:right]=255
+    mask = np.zeros((frame.shape[0],frame.shape[1]),dtype=np.uint8)
+    for (top, right, bottom, left) in face_locations:
+        top =max(0,top-int(frame.shape[0]/10))
+        bottom =min(frame.shape[1],bottom+int(frame.shape[1]/10))
+        left =max(0,left-int(frame.shape[1]/10))
+        right =min(frame.shape[0],right+int(frame.shape[0]/10))
+
+        mask[top:bottom,left:right]=255
+
+    hair_mask = hair_detect(frame)
+    mask=cv2.add(hair_detect,mask)
     return mask
 
 NUM_THREADS = str(multiprocessing.cpu_count())

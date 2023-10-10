@@ -128,7 +128,7 @@ def create_mask_face(frame):
         mask[top:bottom,left:right]=255
 
     hair_mask = hair_detect(frame)
-    mask=cv2.add(hair_detect,mask)
+    mask=cv2.add(hair_mask,mask)
     return mask
 
 NUM_THREADS = str(multiprocessing.cpu_count())

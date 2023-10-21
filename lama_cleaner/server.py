@@ -137,36 +137,81 @@ import numpy as np
 import cv2
 
 
-def create_mask_person(frame):
-  
-    
-    
-    # Initializing the HOG person
-    # detector
-    hog = cv2.HOGDescriptor()
-    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
-    
-    # Reading the Image
-    image =frame
-    
-    
-    mask = np.zeros((frame.shape[0],frame.shape[1]),dtype=np.uint8)
-    # Detecting all the regions in the 
-    # Image that has a pedestrians inside it
-    (regions, _) = hog.detectMultiScale(image, 
-    									winStride=(4, 4),
-    									padding=(4, 4),
-    									scale=1.05)
-    
-    # Drawing the regions in the Image
-    for (x, y, w, h) in regions:
-    	
-    
-        mask[x:x + w,y:y + h]=255
-    
-    
+def create_mask_person(image):
 
-    return mask
+    
+    
+    
+    
+    Width = image.shape[1]
+    Height = image.shape[0]
+    scale = 0.00392
+
+    # read class names from text file
+    classes = None
+    with open('object-detection-opencv/yolov3.txt', 'r') as f:
+        classes = [line.strip() for line in f.readlines()]
+
+    # generate different colors for different classes 
+    COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
+
+    # read pre-trained model and config file
+    net = cv2.dnn.readNet('yolov3.weights', 'object-detection-opencv/yolov3.cfg')
+
+    # create input blob 
+    blob = cv2.dnn.blobFromImage(image, scale, (416,416), (0,0,0), True, crop=False)
+
+    # set input blob for the network
+    net.setInput(blob)
+    
+    mask = np.zeros((image.shape[0],image.shape[1]),dtype=np.uint8)
+    
+    class_ids = []
+    confidences = []
+    boxes = []
+    conf_threshold = 0.5
+    nms_threshold = 0.4
+
+    # for each detetion from each output layer 
+    # get the confidence, class id, bounding box params
+    # and ignore weak detections (confidence < 0.5)
+    outs = net.forward(get_output_layers(net))
+
+    for out in outs:
+        for detection in out:
+            scores = detection[5:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            if confidence > 0.5:
+                center_x = int(detection[0] * Width)
+                center_y = int(detection[1] * Height)
+                w = int(detection[2] * Width)
+                h = int(detection[3] * Height)
+                x = center_x - w / 2
+                y = center_y - h / 2
+                class_ids.append(class_id)
+                confidences.append(float(confidence))
+                boxes.append([x, y, w, h])
+    
+    
+    indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
+    for i in indices:
+        if class_ids[i] == 0:
+          box = boxes[i]
+          x = int(max(0,box[0]-box[2]/10))
+          y = int(max(0,box[1]-box[3]/10))
+          w = int(box[2])
+          h = int(box[3])
+          print(classes[class_ids[i]])
+          gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # convert to grayscale
+          blur = cv2.blur(gray, (5, 5)) # blur the image
+          thresh =  np.zeros((image.shape[0],image.shape[1]),dtype=np.uint8)
+          ret, thresh[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))] = cv2.threshold(
+              blur[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))], 
+              190, 255, cv2.THRESH_BINARY_INV)
+          # thresh[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))]=0
+          thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5,5)), iterations=4)
+    return thresh
 NUM_THREADS = str(multiprocessing.cpu_count())
 
 # fix libomp problem on windows https://github.com/Sanster/lama-cleaner/issues/56

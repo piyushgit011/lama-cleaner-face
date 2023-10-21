@@ -142,7 +142,8 @@ def create_mask_person(image):
     
     
     
-    
+    big_rate_h = 10
+    big_rate_w = 2
     Width = image.shape[1]
     Height = image.shape[0]
     scale = 0.00392
@@ -198,20 +199,23 @@ def create_mask_person(image):
     for i in indices:
         if class_ids[i] == 0:
           box = boxes[i]
-          x = int(max(0,box[0]-box[2]/10))
-          y = int(max(0,box[1]-box[3]/10))
-          w = int(box[2])
-          h = int(box[3])
+          w = int(box[2]*(1+1/big_rate_w))
+          h = int(box[3]*(1+1/big_rate_w))
+          x = int(max(0,box[0]-w/(big_rate_w*2)))
+          y = int(max(0,box[1]-h/(big_rate_h*2)))
+          
           print(classes[class_ids[i]])
           gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # convert to grayscale
           blur = cv2.blur(gray, (5, 5)) # blur the image
           thresh =  np.zeros((image.shape[0],image.shape[1]),dtype=np.uint8)
-          ret, thresh[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))] = cv2.threshold(
-              blur[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))], 
-              190, 255, cv2.THRESH_BINARY_INV)
+          print(1+1/big_rate_w)
+          ret, thresh[y:(min(Height,int(y+h*(1+(1/big_rate_h))))),x:(int(x+w))] = cv2.threshold(
+              blur[y:(min(Height,int(y+h*(1+(1/big_rate_h))))),x:(int(x+w))], 
+              220, 255, cv2.THRESH_BINARY_INV)
           # thresh[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))]=0
-          thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5,5)), iterations=4)
+          thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5,5)), iterations=5)
     return thresh
+
 NUM_THREADS = str(multiprocessing.cpu_count())
 
 # fix libomp problem on windows https://github.com/Sanster/lama-cleaner/issues/56

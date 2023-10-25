@@ -622,7 +622,7 @@ def index():
 
         # mask, _ = load_img(input["mask"].read(), gray=True)
         
-        mask = create_mask_face(image)
+        mask = create_mask_person(image)
         mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)[1]
         if image.shape[:2] != mask.shape[:2]:
             return (

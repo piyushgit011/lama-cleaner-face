@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 import hashlib
-
+import subprocess
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 import imghdr
@@ -144,82 +144,10 @@ def get_output_layers(net):
 
     return output_layers
 def create_mask_person(image):
-
+    cv2.imwrite('image.png',image)
+    subprocess.run('python -W ignore u2net_test.py', shell=True, check=True)
+    thresh = cv2.imread('results/image.png')
     
-    
-    
-    big_rate_h = 10
-    big_rate_w = 2
-    Width = image.shape[1]
-    Height = image.shape[0]
-    scale = 0.00392
-
-    # read class names from text file
-    classes = None
-    with open('object-detection-opencv/yolov3.txt', 'r') as f:
-        classes = [line.strip() for line in f.readlines()]
-
-    # generate different colors for different classes 
-    COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
-
-    # read pre-trained model and config file
-    net = cv2.dnn.readNet('yolov3.weights', 'object-detection-opencv/yolov3.cfg')
-
-    # create input blob 
-    blob = cv2.dnn.blobFromImage(image, scale, (416,416), (0,0,0), True, crop=False)
-
-    # set input blob for the network
-    net.setInput(blob)
-    
-    mask = np.zeros((image.shape[0],image.shape[1]),dtype=np.uint8)
-    
-    class_ids = []
-    confidences = []
-    boxes = []
-    conf_threshold = 0.5
-    nms_threshold = 0.4
-
-    # for each detetion from each output layer 
-    # get the confidence, class id, bounding box params
-    # and ignore weak detections (confidence < 0.5)
-    outs = net.forward(get_output_layers(net))
-
-    for out in outs:
-        for detection in out:
-            scores = detection[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > 0.5:
-                center_x = int(detection[0] * Width)
-                center_y = int(detection[1] * Height)
-                w = int(detection[2] * Width)
-                h = int(detection[3] * Height)
-                x = center_x - w / 2
-                y = center_y - h / 2
-                class_ids.append(class_id)
-                confidences.append(float(confidence))
-                boxes.append([x, y, w, h])
-    
-    
-    indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
-    for i in indices:
-        if class_ids[i] == 0:
-          box = boxes[i]
-          w = int(box[2]*(1+1/big_rate_w))
-          h = int(box[3]*(1+1/big_rate_w))
-          x = int(max(0,box[0]-w/(big_rate_w*2)))
-          y = int(max(0,box[1]-h/(big_rate_h*2)))
-          
-          print(classes[class_ids[i]])
-          gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # convert to grayscale
-          blur = cv2.blur(gray, (5, 5)) # blur the image
-          thresh =  np.zeros((image.shape[0],image.shape[1]),dtype=np.uint8)
-          print(1+1/big_rate_w)
-          ret, thresh[y:(min(Height,int(y+h*(1+(1/big_rate_h))))),x:(int(x+w))] = cv2.threshold(
-              blur[y:(min(Height,int(y+h*(1+(1/big_rate_h))))),x:(int(x+w))], 
-              220, 255, cv2.THRESH_BINARY_INV)
-          # thresh[y:(min(Height,int(y+h*1.1))),x:min(Width,(int(x+w*1.1)))]=0
-          thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5,5)), iterations=5)
     return thresh
 
 NUM_THREADS = str(multiprocessing.cpu_count())

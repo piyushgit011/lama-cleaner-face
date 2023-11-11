@@ -145,11 +145,11 @@ def get_output_layers(net):
     return output_layers
 def create_mask_person(image):
 
-    cv2.imwrite('image.png',image)
+    cv2.imwrite('images/image.png',image)
     subprocess.run('python -W ignore u2net_test.py', shell=True, check=True)
-    thresh = cv2.imread('results/image.png')
+    mask = cv2.imread('results/image.png')
    
-    return thresh
+    return mask
 
 NUM_THREADS = str(multiprocessing.cpu_count())
 

@@ -2,8 +2,11 @@
 import os
 import hashlib
 import subprocess
+# import numpy as np
+from segment_anything import SamPredictor
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-
+import cv2
+import supervision as sv
 import imghdr
 import io
 import logging
@@ -145,11 +148,64 @@ def get_output_layers(net):
     return output_layers
 def create_mask_person(image):
 
-    cv2.imwrite('images/image.png',image)
-    subprocess.run('python -W ignore u2net_test.py', shell=True, check=True)
-    mask = cv2.imread('results/image.png')
-   
-    return mask
+   CLASSES = ['person']
+   BOX_TRESHOLD = 0.35
+   TEXT_TRESHOLD = 0.25
+
+   from typing import List
+
+   def enhance_class_name(class_names: List[str]) -> List[str]:
+        return [
+           f"all {class_name}s"
+           for class_name
+           in class_names
+        ]
+
+   # load image
+   detections = grounding_dino_model.predict_with_classes(
+      image=image,
+      classes=enhance_class_name(class_names=CLASSES),
+      box_threshold=BOX_TRESHOLD,
+      text_threshold=TEXT_TRESHOLD
+   )
+
+# annotate image with detections
+   box_annotator = sv.BoxAnnotator()
+   # print(box_annotator)
+   labels = [
+      f"{CLASSES[class_id]} {confidence:0.2f}"
+      for _, _, confidence, class_id, _
+      in detections]
+   annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections, labels=labels)
+
+
+
+   def segment(sam_predictor: SamPredictor, image: np.ndarray, xyxy: np.ndarray) -> np.ndarray:
+      sam_predictor.set_image(image)
+      result_masks = []
+      for box in xyxy:
+          masks, scores, logits = sam_predictor.predict(
+              box=box,
+              multimask_output=True
+          )
+          index = np.argmax(scores)
+          result_masks.append(masks[index])
+      return np.array(result_masks)
+   detections.mask = segment(
+      sam_predictor=sam_predictor,
+      image=cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
+      xyxy=detections.xyxy
+   )
+
+# annotate image with detections
+   box_annotator = sv.BoxAnnotator()
+   mask_annotator = sv.MaskAnnotator()
+   labels = [
+      f"{CLASSES[class_id]} {confidence:0.2f}"
+      for _, _, confidence, class_id, _
+      in detections]
+   annotated_image = mask_annotator.annotate(scene=image.copy(), detections=detections)       
+   return annotated_image
 
 NUM_THREADS = str(multiprocessing.cpu_count())
 

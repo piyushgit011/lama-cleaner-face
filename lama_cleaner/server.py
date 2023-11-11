@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 import os
+HOME = os.getcwd()
+print("HOME:", HOME)
+GROUNDING_DINO_CONFIG_PATH = os.path.join(HOME, "GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py")
+SAM_CHECKPOINT_PATH = os.path.join(HOME, "weights", "sam_vit_h_4b8939.pth")
 import hashlib
 import subprocess
 # import numpy as np
@@ -20,6 +24,16 @@ import numpy as np
 import torch
 from PIL import Image
 from loguru import logger
+from groundingdino.util.inference import Model
+
+grounding_dino_model = Model(model_config_path=GROUNDING_DINO_CONFIG_PATH, model_checkpoint_path=GROUNDING_DINO_CHECKPOINT_PATH)
+
+SAM_ENCODER_VERSION = "vit_h"
+
+from segment_anything import sam_model_registry, SamPredictor
+
+sam = sam_model_registry[SAM_ENCODER_VERSION](checkpoint=SAM_CHECKPOINT_PATH).to(device='cuda')
+sam_predictor = SamPredictor(sam)
 
 from lama_cleaner.const import SD15_MODELS
 from lama_cleaner.file_manager import FileManager
